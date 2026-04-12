@@ -136,8 +136,8 @@ def main():
             file_names.append(f['name'])
             # Use the local VPS public URL so Instagram can actually access the file
             # Replace spaces with %20 for URL safety
-            public_base = os.getenv("PUBLIC_API_URL", "http://localhost:8000")
-            public_url = f"{public_base}/media/{f['name']}".replace(" ", "%20")
+            public_base = os.getenv("PUBLIC_API_URL", "http://localhost:8000").rstrip("/")
+            public_url = f"{public_base}/api/media/{f['name']}".replace(" ", "%20")
             media_urls.append(public_url)
             logger.info(f"Generated public media URL: {public_url}")
 

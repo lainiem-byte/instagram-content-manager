@@ -35,7 +35,7 @@ app.add_middleware(
 
 # Create downloads folder if missing and mount it
 os.makedirs("downloads", exist_ok=True)
-app.mount("/media", StaticFiles(directory="downloads"), name="media")
+app.mount("/api/media", StaticFiles(directory="downloads"), name="media")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('api')
@@ -142,7 +142,8 @@ async def run_pipeline(profile_id: str, background_tasks: BackgroundTasks):
 def meta_login():
     """Redirects the user to the Facebook OAuth dialog."""
     app_id = os.getenv("INSTAGRAM_APP_ID")
-    redirect_uri = f"{os.getenv('PUBLIC_API_URL', 'https://lnldemos.tech')}/api/meta/instagram/callback"
+    base_url = os.getenv('PUBLIC_API_URL', 'https://lnldemos.tech').rstrip('/')
+    redirect_uri = f"{base_url}/api/meta/instagram/callback"
     
     # Full list of scopes requested by the user for comprehensive management
     scopes = [
@@ -178,7 +179,8 @@ def instagram_callback(code: Optional[str] = None, error: Optional[str] = None):
     """
     app_id = os.getenv("INSTAGRAM_APP_ID")
     app_secret = os.getenv("INSTAGRAM_APP_SECRET")
-    redirect_uri = f"{os.getenv('PUBLIC_API_URL', 'https://lnldemos.tech')}/api/meta/instagram/callback"
+    base_url = os.getenv('PUBLIC_API_URL', 'https://lnldemos.tech').rstrip('/')
+    redirect_uri = f"{base_url}/api/meta/instagram/callback"
     
     token_display = "No code received"
     token_status = "error"
