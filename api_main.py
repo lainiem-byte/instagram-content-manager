@@ -58,9 +58,11 @@ class Profile(BaseModel):
     overview: Optional[str] = None
     fonts: List[str] = []
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 @app.get("/api/profiles", response_model=List[Profile])
 async def get_profiles():
-    config_path = os.path.join(os.getcwd(), 'config', 'brand-profiles.json')
+    config_path = os.path.join(BASE_DIR, 'config', 'brand-profiles.json')
     if not os.path.exists(config_path):
         return []
     with open(config_path, 'r', encoding='utf-8') as f:
@@ -69,7 +71,7 @@ async def get_profiles():
 
 @app.get("/api/history")
 async def get_history():
-    history_path = os.path.join(os.getcwd(), 'logs', 'post_history.json')
+    history_path = os.path.join(BASE_DIR, 'logs', 'post_history.json')
     if not os.path.exists(history_path):
         return []
     with open(history_path, 'r', encoding='utf-8') as f:
@@ -136,11 +138,11 @@ async def run_pipeline(profile_id: str, background_tasks: BackgroundTasks):
 
 # --- FACEBOOK OAUTH WORKFLOW ---
 
-@app.get("/meta/login")
+@app.get("/api/meta/login")
 def meta_login():
     """Redirects the user to the Facebook OAuth dialog."""
     app_id = os.getenv("INSTAGRAM_APP_ID")
-    redirect_uri = f"{os.getenv('PUBLIC_API_URL', 'https://lnldemos.tech')}/meta/instagram/callback"
+    redirect_uri = f"{os.getenv('PUBLIC_API_URL', 'https://lnldemos.tech')}/api/meta/instagram/callback"
     
     # Full list of scopes requested by the user for comprehensive management
     scopes = [
@@ -168,7 +170,7 @@ def meta_login():
     )
     return RedirectResponse(auth_url)
 
-@app.get("/meta/instagram/callback")
+@app.get("/api/meta/instagram/callback")
 def instagram_callback(code: Optional[str] = None, error: Optional[str] = None):
     """
     Handles the Facebook OAuth callback. 
@@ -176,7 +178,7 @@ def instagram_callback(code: Optional[str] = None, error: Optional[str] = None):
     """
     app_id = os.getenv("INSTAGRAM_APP_ID")
     app_secret = os.getenv("INSTAGRAM_APP_SECRET")
-    redirect_uri = f"{os.getenv('PUBLIC_API_URL', 'https://lnldemos.tech')}/meta/instagram/callback"
+    redirect_uri = f"{os.getenv('PUBLIC_API_URL', 'https://lnldemos.tech')}/api/meta/instagram/callback"
     
     token_display = "No code received"
     token_status = "error"

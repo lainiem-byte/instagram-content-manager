@@ -424,7 +424,7 @@ export default function Dashboard() {
 
         <div className="mt-auto pt-6 border-t border-slate-800 space-y-4">
           <button 
-            onClick={() => window.open(`${apiBase.replace('/api', '')}/meta/login`, '_blank')}
+            onClick={() => window.open(`${apiBase}/meta/login`, '_blank')}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm hover:from-blue-500 hover:to-indigo-500 transition-all shadow-lg shadow-blue-900/20"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
