@@ -97,12 +97,12 @@ class InstagramPublisher:
         if response.status_code == 200 and 'id' in data:
             return data['id']
         else:
-            # Sometimes video containers take time to be ready
-            logger.error(f"Publish failed: {data}")
-            if attempt < 3:
-                backoff = (2 ** attempt) * 5 # Extra wait for videos to process
-                logger.info(f"Retrying publish in {backoff} seconds...")
-                time.sleep(backoff)
+            # Video containers for Reels/Stories often take 30-90 seconds to be ready natively on Meta's end
+            logger.error(f"Publish failed (Attempt {attempt}): {data}")
+            if attempt < 6:
+                wait_time = 15 # Wait 15 seconds between retries for video processing
+                logger.info(f"Meta says container is not ready yet. Waiting {wait_time} seconds before retry...")
+                time.sleep(wait_time)
                 return self._publish_container(container_id, attempt + 1)
             return None
 
