@@ -158,16 +158,20 @@ def meta_login():
     ]
     
     # User-provided setup extras for IG API Onboarding
+    import urllib.parse
     extras = '{"setup":{"channel":"IG_API_ONBOARDING"}}'
+    
+    safe_redirect = urllib.parse.quote(redirect_uri, safe='')
+    safe_extras = urllib.parse.quote(extras, safe='')
     
     auth_url = (
         f"https://www.facebook.com/v20.0/dialog/oauth?"
         f"client_id={app_id}&"
-        f"redirect_uri={redirect_uri}&"
+        f"redirect_uri={safe_redirect}&"
         f"scope={','.join(scopes)}&"
         f"response_type=code&"
         f"display=page&"
-        f"extras={extras}"
+        f"extras={safe_extras}"
     )
     return RedirectResponse(auth_url)
 
