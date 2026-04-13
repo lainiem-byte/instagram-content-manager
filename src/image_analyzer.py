@@ -90,12 +90,25 @@ class ImageAnalyzer:
         try:
             model = genai.GenerativeModel(self.model_name)
             
+            import time
             # Prepare content
             content_parts = [prompt]
             for path in image_paths:
                 if os.path.exists(path):
-                    img = Image.open(path)
-                    content_parts.append(img)
+                    ext = os.path.splitext(path)[1].lower()
+                    if ext in ['.mp4', '.mov', '.avi', '.webm', '.mkv']:
+                        logger.info(f"Uploading video {path} to Gemini for analysis...")
+                        video_file = genai.upload_file(path=path)
+                        while video_file.state.name == "PROCESSING":
+                            time.sleep(2)
+                            video_file = genai.get_file(video_file.name)
+                        if video_file.state.name == "FAILED":
+                            logger.error(f"Gemini video processing failed for {path}")
+                            continue
+                        content_parts.append(video_file)
+                    else:
+                        img = Image.open(path)
+                        content_parts.append(img)
             
             # Generate content
             response = model.generate_content(content_parts)
