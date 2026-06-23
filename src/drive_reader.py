@@ -41,6 +41,9 @@ class DriveReader:
         logger.info("Successfully authenticated with Google Drive")
 
     def get_posted_folder_id(self, parent_folder_id):
+        if not self.drive_service:
+            logger.error("Drive service is not initialized.")
+            return None
         query = f"'{parent_folder_id}' in parents and name = 'Posted' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
         results = self.drive_service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
         files = results.get('files', [])
@@ -66,6 +69,9 @@ class DriveReader:
         return None
 
     def fetch_unprocessed_media(self, parent_folder_id, limit=100):
+        if not self.drive_service:
+            logger.error("Drive service is not initialized. Cannot fetch media.")
+            return []
         query = f"'{parent_folder_id}' in parents and mimeType != 'application/vnd.google-apps.folder' and mimeType != 'application/vnd.google-apps.spreadsheet' and trashed = false"
         results = self.drive_service.files().list(
             q=query, 
@@ -86,6 +92,9 @@ class DriveReader:
         return unprocessed
 
     def download_file(self, file_id, file_name, destination_folder='downloads'):
+        if not self.drive_service:
+            logger.error("Drive service is not initialized. Cannot download file.")
+            return None
         os.makedirs(destination_folder, exist_ok=True)
         file_path = os.path.join(destination_folder, file_name)
         
@@ -100,7 +109,13 @@ class DriveReader:
         return file_path
 
     def move_file_to_posted(self, file_id, parent_folder_id):
+        if not self.drive_service:
+            logger.error("Drive service is not initialized. Cannot move file.")
+            return
         posted_folder_id = self.get_posted_folder_id(parent_folder_id)
+        if not posted_folder_id:
+            logger.error("Could not locate or create Posted folder.")
+            return
         file = self.drive_service.files().get(fileId=file_id, fields='parents').execute()
         previous_parents = ",".join(file.get('parents'))
         

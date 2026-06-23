@@ -18,6 +18,7 @@ test_result.txt
 client_secret*.json
 *.json
 !config/*.json
+config/intrepid-alloy-*.json
 !package.json
 !tsconfig.json
 !composer.json

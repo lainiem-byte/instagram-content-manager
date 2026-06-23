@@ -19,7 +19,7 @@ try:
 except ImportError:
     pass
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from drive_reader import DriveReader
 from image_analyzer import ImageAnalyzer
 from hashtag_engine import HashtagEngine
@@ -144,7 +144,107 @@ def main():
         # 3. Post Type + Analyze
         post_type = composer.determine_post_type(local_paths)
         
-        analysis = analyzer.analyze_and_generate(local_paths, profile, post_type)
+        # Check if we have a pre-scheduled caption for this format
+        scheduled_item = None
+        schedule_data = None
+        schedule_file = "logs/upcoming_schedule.json"
+        
+        if os.path.exists(schedule_file):
+            try:
+                with open(schedule_file, "r") as f:
+                    schedule_data = json.load(f)
+                for item in schedule_data.get("posts", []):
+                    item_type = item.get("post_type", "")
+                    is_match = (
+                        item_type == post_type or 
+                        (item_type in ["reel", "feed"] and post_type in ["reel", "feed"])
+                    )
+                    if is_match and item.get("status") == "pending":
+                        scheduled_item = item
+                        break
+            except Exception as e:
+                logger.error(f"Error reading upcoming schedule: {e}")
+
+        if scheduled_item:
+            logger.info(f"Using pre-scheduled caption from schedule for format: {post_type} (Day {scheduled_item.get('day')})")
+            post_angle = scheduled_item.get("post_angle", "info")
+            analysis = {
+                "caption": scheduled_item.get("caption"),
+                "analysis": post_angle
+            }
+        else:
+            # Check if filename explicitly indicates the target strategic angle
+            filename_combined = "".join([f.get('name', '').lower() for f in batch])
+            
+            if "lead_magnet" in filename_combined or "leadmag" in filename_combined:
+                post_angle = "lead_magnet"
+            elif "teaching" in filename_combined or "teach" in filename_combined:
+                post_angle = "teaching"
+            elif "story_promo" in filename_combined or "storypromo" in filename_combined:
+                post_angle = "story_promo"
+            elif "story_value" in filename_combined or "storyvalue" in filename_combined:
+                post_angle = "story_value"
+            elif "info" in filename_combined:
+                post_angle = "info"
+            else:
+                # Calculate post angle based on post_type format and story history ratio
+                if post_type == "carousel":
+                    post_angle = "teaching"
+                elif post_type in ["reel", "feed"]:
+                    post_angle = "info"
+                elif post_type == "story":
+                    # Check story history for 1-in-4 or 1-in-5 promo ratio
+                    history = scheduler._read_history()
+                    stories_since_last_promo = 0
+                    found_promo = False
+                    for entry in reversed(history):
+                        if entry.get("account_id") == profile.get("account_id") and entry.get("status") == "Success":
+                            entry_pt = entry.get("post_type", "")
+                            entry_pa = entry.get("post_angle", "")
+                            
+                            if "story" in entry_pt.lower():
+                                if entry_pa == "story_promo" or "promo" in entry_pt.lower():
+                                    found_promo = True
+                                    break
+                                else:
+                                    stories_since_last_promo += 1
+                                    if stories_since_last_promo >= 4:
+                                        break
+                    
+                    # If no promo was found, or we've posted at least 4 non-promo stories since the last promo, make it a promo story
+                    if not found_promo or stories_since_last_promo >= 4:
+                        post_angle = "story_promo"
+                    else:
+                        post_angle = "story_value"
+                else:
+                    post_angle = "info"
+                    
+                # Lead Magnet check: Override Reel or Carousel feed posts once a week
+                if post_type in ["reel", "feed", "carousel"]:
+                    history = scheduler._read_history()
+                    has_recent_lead_magnet = False
+                    one_week_ago = datetime.now() - timedelta(days=7)
+                    
+                    for entry in reversed(history):
+                        if entry.get("account_id") == profile.get("account_id") and entry.get("status") == "Success":
+                            entry_date_str = entry.get("timestamp", "").split("T")[0]
+                            try:
+                                entry_date = datetime.strptime(entry_date_str, "%Y-%m-%d")
+                                if entry_date >= one_week_ago and entry.get("post_angle") == "lead_magnet":
+                                    has_recent_lead_magnet = True
+                                    break
+                            except ValueError:
+                                # Fallback check if date parsing fails or missing
+                                if entry.get("post_angle") == "lead_magnet":
+                                    has_recent_lead_magnet = True
+                                    break
+                    
+                    if not has_recent_lead_magnet:
+                        post_angle = "lead_magnet"
+                
+            logger.info(f"Resolved format: {post_type}. Mapped content strategy angle: {post_angle}")
+
+            analysis = analyzer.analyze_and_generate(local_paths, profile, post_type, post_angle)
         if not analysis:
             logger.error(f"Analysis failed for {post_type}. Skipping.")
             continue
@@ -170,7 +270,7 @@ def main():
             date_posted=date_posted,
             account=profile.get('brand_name'),
             filename=", ".join(file_names),
-            post_type=post_type,
+            post_type=f"{post_type} ({post_angle})",
             caption=payload.get('text', ''),
             hashtags=hashtags,
             post_id=post_id if post_id else "",
@@ -183,12 +283,26 @@ def main():
             "account_id": profile.get("account_id"),
             "status": status,
             "post_type": post_type,
+            "post_angle": post_angle,
             "hashtags": hashtags,
             "post_id": post_id
         })
 
-        # 8. Move files to posted
+        # 8. Move files to posted and update pre-scheduled status
         if status == "Success":
+            if scheduled_item and schedule_data:
+                for item in schedule_data.get("posts", []):
+                    if item.get("day") == scheduled_item.get("day") and item.get("post_type") == scheduled_item.get("post_type"):
+                        item["status"] = "Success"
+                        item["timestamp"] = datetime.now().isoformat()
+                        item["post_id"] = post_id
+                        break
+                try:
+                    with open(schedule_file, "w") as f:
+                        json.dump(schedule_data, f, indent=2)
+                    logger.info(f"Updated upcoming_schedule.json: Day {scheduled_item.get('day')} marked Success.")
+                except Exception as e:
+                    logger.error(f"Failed to update upcoming_schedule.json: {e}")
             for f in batch:
                 reader.move_file_to_posted(f['id'], folder_id)
 

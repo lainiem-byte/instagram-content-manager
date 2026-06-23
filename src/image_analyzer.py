@@ -50,40 +50,89 @@ class ImageAnalyzer:
             logger.error(f"Model discovery failed: {e}")
             return 'models/gemini-1.5-flash'
         
-    def analyze_and_generate(self, image_paths, profile, post_type="feed"):
+    def analyze_and_generate(self, image_paths, profile, post_type="feed", post_angle="info"):
         if not image_paths:
             return None
             
         profile_display = profile.get('brand_name') or profile.get('name') or "the brand"
         brand_voice = profile.get('brand_voice', 'professional and engaging')
         aesthetic = profile.get('aesthetic', 'modern and clean')
-        tone_keywords = ", ".join(profile.get('tone_keywords', []))
         overview = profile.get('overview', '')
         
         overview_section = f"- Overview: {overview}" if overview else ""
         
-        prompt = f"""You are the lead content strategy expert and master copywriter for {profile_display}. 
-        Your mission is to transform these images into a high-converting, authority-building Instagram {post_type} post. 
+        # Build prompt guidelines based on post angle and format rules
+        if post_angle == "teaching":
+            angle_guidelines = """
+            **POST TYPE: CAROUSEL (Teaching / Expertise Play)**
+            - **Goal:** Prove deep technical/growth expertise, drive saves and shares.
+            - **Content:** Practical step-by-step how-to, framework cheatsheet, or FAQ breakdown (focusing on Voice Agents or AI SEO).
+            - **Hook:** A promise of immediate problem-solving value or a technical framework breakdown (e.g. "The exact 3-step checklist we use to audit local search visibility / design call agent flows").
+            - **Structure:** Break the guides down into clear numbered points or steps with double-spacing between. Keep paragraphs very short (1-2 sentences).
+            - **Call to Action (CTA):** TUCK IN A SOFT CTA AT THE END (e.g., "If you want to see how we build and deploy these automated systems for clients, link in bio to read our case study."). No hard pitches.
+            """
+        elif post_angle == "lead_magnet":
+            angle_guidelines = """
+            **POST ANGLE: LEAD MAGNET (Comment Trigger Play)**
+            - **Goal:** Drive maximum comments (specifically the trigger word 'PROMPTS') to trigger your automated messaging/DM delivery system.
+            - **Content:** Pitching the value of your free "Marketing Prompt Pack" (which helps businesses build voice agents, script call flow logic, or audit their local SEO search visibility).
+            - **Hook:** A high-curiosity hook showing the exact outcome achieved using these prompts (e.g., "We used 3 simple prompts to design our client's voice agent script. Here they are." or "The exact prompt document we use to audit local SEO visibility in 5 minutes.").
+            - **Structure:** Punchy, double-spaced single-sentence paragraphs. Outline what is inside the prompt pack in 3 short bullet points (using emojis).
+            - **Call to Action (CTA):** STRICT comment trigger CTA: "Comment 'PROMPTS' below and I'll DM you the direct link to the prompt pack instantly." (Do not ask them to click a link in bio; they must comment).
+            """
+        elif post_angle == "story_promo":
+            angle_guidelines = """
+            **POST TYPE: STORY PROMO (Direct Offer / Conversion Play)**
+            - **Goal:** Convert existing warm audience.
+            - **Content:** Direct "work with us" ask, case study proof, client wins, or booking audits (Voice Agents or AI SEO).
+            - **Hook:** Start with direct, high-value metrics or pain-point resolution.
+            - **Structure & Formatting:** Hyper-punchy. Use very few words. Make it sound like a direct personal message or a quick announcement.
+            - **Call to Action (CTA):** High-intent, direct action trigger (e.g. "DM us AUDIT to claim your slot" or "Tap the link to book a 15-minute voice agent audit").
+            """
+        elif post_angle == "story_value":
+            angle_guidelines = """
+            **POST TYPE: STORY VALUE (Behind-the-Scenes / Warm Play)**
+            - **Goal:** Build trust and keep the current audience engaged.
+            - **Content:** Quick tip, daily stat highlight, behind-the-scenes building update, or tech screenshot explanation.
+            - **Hook:** Quick conversational hook.
+            - **Structure & Formatting:** Casual, direct, building-in-public vibe.
+            - **Call to Action (CTA):** Interactive prompt or gentle question (e.g., "Do you answer your phone 24/7 or use an answering service?").
+            """
+        else:  # info / reel
+            angle_guidelines = """
+            **POST TYPE: REEL (Informational / Reach Play)**
+            - **Goal:** Reach non-followers, gain visibility, and address broad industry struggles.
+            - **Content:** Expose a major operational problem or revenue leak in local business marketing, and back it up with a hard-hitting real-world statistic (e.g., *"med spas lose $130K a year to missed calls"* or *"62% of local searches go unanswered"* or *"local SEO visibility drops 35% when algorithm changes are ignored"*).
+            - **Hook:** Start immediately with a striking hook and the real-world statistic.
+            - **Structure:** Extremely punchy, double-spaced single-sentence paragraphs. No generic intros.
+            - **Call to Action (CTA):** Purely educational/reach CTA (e.g., "Save this post to reference during your next ops meeting"). Absolutely NO direct sales pitch or "work with us" ask.
+            """
 
-        **PERSONA:** You are a seasoned educator and consultant. You don't just "post"—you teach, lead, and build trust through deep expertise.
+        prompt = f"""You are the lead content strategy expert and master copywriter for {profile_display}. 
+        Your mission is to transform these images into a high-converting, engagement-driven Instagram {post_type} post. 
+
+        **PERSONA:** You are a sharp, forward-thinking growth engineer and tech authority. You sound human, direct, bold, and authoritative. You write like you are building in public.
 
         **BRAND CONTEXT:**
         - Brand: {profile_display}
         {overview_section}
-        - Voice: {brand_voice}
+        - Voice: {brand_voice} (Apply this voice but make it highly native to short-form social media: punchy, clear, no filler words).
         - Aesthetic: {aesthetic}
 
-        **THE ASSIGNMENT (SURGICAL EXPERT):**
-        1. **HOOK:** Start with a bold, scroll-stopping engineering insight.
-        2. **AUTHORITY:** Write 2-3 precise paragraphs. No marketing fluff. Every sentence must command respect.
-        3. **CONSTRAINTS:** Keep the total caption between 1,000 and 1,500 characters.
-        4. **CTA:** Link in bio.
-        5. **STRUCTURE:** Use line breaks for mobile readability.
+        {angle_guidelines}
+
+        **CRITICAL WRITING GUARDRAILS:**
+        - **Banned AI Cliches:** Do NOT use words like: "digital landscape", "tapestry", "delve", "testament", "revolutionize", "seamlessly", "harness", "elevate", "unlocking", "game-changer", "world-class". If you use these, the copy reads as AI-generated and fails.
+        - **Zero Fluff:** Start immediately with the Hook. No "Hey guys," "Are you ready?", or generic welcome intros.
+        - **Micro-Formatting:** Use extensive white space. Double spacing between points. Every paragraph should be 1 or 2 lines maximum.
+        - **Emojis:** Use emojis selectively for formatting/bullets (e.g., ⚡, →, ✓, ✕) to guide the eye. Do not spam them.
+        - **Length:** Keep the entire caption concise and punchy (between 600 and 1,200 characters).
+        - **JSON Safety:** Do NOT use unescaped double quotes inside the "caption" JSON value. Use single quotes for speech, quotes, or nested terms (e.g., use 'call back later' instead of "call back later").
 
         Return ONLY a JSON object:
         {{
-            "caption": "The surgical expert caption here",
-            "analysis": "Short category name"
+            "caption": "The scroll-stopping, high-engagement caption here",
+            "analysis": "Short category name or pillar focus (e.g., Voice Agents or AI SEO)"
         }}
         """
 
@@ -123,7 +172,7 @@ class ImageAnalyzer:
                     text = text.split("```")[1].split("```")[0].strip()
                 
                 logger.info(f"AI Success! Using {self.model_name}. Response: {text}")
-                return json.loads(text)
+                return json.loads(text, strict=False)
             else:
                 logger.error("Empty response from Gemini")
                 return None

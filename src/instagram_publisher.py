@@ -62,7 +62,13 @@ class InstagramPublisher:
                 logger.debug(f"Creating carousel child for URL: {m_url}")
                 child_res = requests.post(url, data=child_params)
                 if child_res.status_code == 200:
-                    children.append(child_res.json().get('id'))
+                    child_id = child_res.json().get('id')
+                    logger.info(f"Carousel child container created: {child_id}. Polling status...")
+                    if self._wait_for_container(child_id):
+                        children.append(child_id)
+                    else:
+                        logger.error(f"Carousel child {child_id} failed processing.")
+                        return None
                 else:
                     logger.error(f"Failed to create carousel child: {child_res.json()}")
                     return None
@@ -82,6 +88,34 @@ class InstagramPublisher:
                 time.sleep(backoff)
                 return self._create_container(payload, attempt + 1)
             return None
+
+    def _wait_for_container(self, container_id, max_attempts=12, delay=10):
+        """Polls the container status until it is FINISHED or errors out."""
+        url = f"{self.base_url}/{container_id}"
+        params = {
+            "fields": "status_code",
+            "access_token": self.access_token
+        }
+        
+        for attempt in range(1, max_attempts + 1):
+            try:
+                res = requests.get(url, params=params)
+                data = res.json()
+                status = data.get("status_code")
+                logger.info(f"Container {container_id} status check: {status} (Attempt {attempt}/{max_attempts})")
+                
+                if status == "FINISHED":
+                    return True
+                elif status == "ERROR":
+                    logger.error(f"Container {container_id} failed processing natively: {data}")
+                    return False
+            except Exception as e:
+                logger.error(f"Error checking container status: {e}")
+                
+            time.sleep(delay)
+            
+        logger.warning(f"Container {container_id} did not finish processing in time ({max_attempts * delay}s).")
+        return False
 
     def _publish_container(self, container_id, attempt=1):
         """Step 2: Publish the media container"""
