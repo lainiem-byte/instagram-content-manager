@@ -138,31 +138,54 @@ async def run_pipeline(profile_id: str, background_tasks: BackgroundTasks):
 
 # --- FACEBOOK OAUTH WORKFLOW ---
 
+def update_env_token(new_token: str):
+    """Safely updates or appends the INSTAGRAM_ACCESS_TOKEN in the local .env file."""
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.exists(env_path):
+        env_path = os.path.join(os.getcwd(), ".env")
+        
+    try:
+        lines = []
+        token_found = False
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            
+            for i, line in enumerate(lines):
+                if line.strip().startswith("INSTAGRAM_ACCESS_TOKEN="):
+                    lines[i] = f"INSTAGRAM_ACCESS_TOKEN={new_token}\n"
+                    token_found = True
+                    break
+        
+        if not token_found:
+            lines.append(f"\nINSTAGRAM_ACCESS_TOKEN={new_token}\n")
+            
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+            
+        # Re-load environment variables in the current running process
+        os.environ["INSTAGRAM_ACCESS_TOKEN"] = new_token
+        logger.info("✅ Automatically updated INSTAGRAM_ACCESS_TOKEN in .env and current process environment.")
+    except Exception as e:
+        logger.error(f"❌ Failed to automatically write access token to .env: {e}")
+
 @app.get("/api/meta/login")
 def meta_login():
-    """Redirects the user to the Facebook OAuth dialog."""
+    """Redirects the user to the Facebook OAuth dialog with simplified scopes."""
     app_id = os.getenv("INSTAGRAM_APP_ID")
     base_url = os.getenv('PUBLIC_API_URL', 'https://lnldemos.tech').rstrip('/')
     redirect_uri = f"{base_url}/api/meta/instagram/callback"
     
-    # Full list of scopes requested by the user for comprehensive management
+    # Minimal scopes required for posting to Instagram, avoiding unapproved business scopes
     scopes = [
         "instagram_basic",
         "instagram_content_publish",
-        "instagram_manage_comments",
-        "instagram_manage_insights",
         "pages_show_list",
-        "pages_read_engagement",
-        "business_management",
-        "public_profile"
+        "pages_read_engagement"
     ]
     
-    # User-provided setup extras for IG API Onboarding
     import urllib.parse
-    extras = '{"setup":{"channel":"IG_API_ONBOARDING"}}'
-    
     safe_redirect = urllib.parse.quote(redirect_uri, safe='')
-    safe_extras = urllib.parse.quote(extras, safe='')
     
     auth_url = (
         f"https://www.facebook.com/v20.0/dialog/oauth?"
@@ -170,10 +193,10 @@ def meta_login():
         f"redirect_uri={safe_redirect}&"
         f"scope={','.join(scopes)}&"
         f"response_type=code&"
-        f"display=page&"
-        f"extras={safe_extras}"
+        f"display=page"
     )
     return RedirectResponse(auth_url)
+
 
 @app.get("/api/meta/instagram/callback")
 def instagram_callback(code: Optional[str] = None, error: Optional[str] = None):
@@ -221,6 +244,7 @@ def instagram_callback(code: Optional[str] = None, error: Optional[str] = None):
                     token_display = ll_data["access_token"]
                     token_status = "success"
                     logger.info("✅ Long-lived token successfully generated.")
+                    update_env_token(token_display)
                 else:
                     token_display = short_token
                     token_status = "warning"
